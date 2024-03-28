@@ -1,52 +1,49 @@
 #!/usr/bin/python3
-'''reads stdin line by line and computes metrics'''
-import re
 import sys
+import re
 import signal
 
 
-toMatch = re.compile(
-                     r'^\d{1,3}\.\d{1,3}\.\d{1,3} \
-                     \.\d{1,3}\s\-\s\[[0-9]{4}\-[0-9] \
-                     {1,2}\-[0-9]{1,2}\s[0-9]{1,2}\: \
-                     [0-9]{1,2}\:[0-9]{1,2}.[0-9]{1,6}\] \
-                     \s\"GET\s\/projects\/260\sHTTP\/ \
-                     1\.1\"\s\d{3}\s\d{1,4}$')
-statusCodeTracker = {
-    '200': 0,
-    '301': 0,
-    '400': 0,
-    '401': 0,
-    '403': 0,
-    '404': 0,
-    '405': 0,
-    '500': 0
-}
-fileSizeTracker = 0
-lineCount = 0
+def initialize_log():
+    status_code = [200, 301, 400, 401, 403, 404, 405, 500]
+    log = {"file_size": 0, "code_list": {str(code): 0 for code in status_code}}
+    return log
 
 
-def handler():
-    return True
+def parse_line(line, regex, log):
+    match = regex.fullmatch(line)
+     if match:
+            stat_code, file_size = match.group(1, 2)
+         log["file_size"] += int(file_size)
+        if stat_code.isdecimal():
+            log["code_list"][stat_code] += 1
+
+            return log
+
+def print_codes():
+    print("file size: {}".format(log["file_size"]))
+    sorted_code_list = sorted(log["code_list"])
+    for code in sorted_code_list:
+        if log["code_list"][code]:
+            print(f"{code}: {log["code_list"][code]}")
 
 
-for line in sys.stdin:
-    lineCount += 1
-    if toMatch.match(line) is False:
-        continue
-    withoutDash = line.replace('-', '')
-    arrayFromString = withoutDash.split(' ')
-    try:
-        statusCode = int(arrayFromString[6])
-        if arrayFromString[5] and isinstance(int(arrayFromString[6]), int):
-            statusCodeTracker[arrayFromString[6]] += 1
-        fileSizeTracker += int(arrayFromString[7])
-        if lineCount == 10 or signal.signal(signal.SIGINT, handler):
-            print('File size: {}'.format(fileSizeTracker))
-            for key, value in statusCodeTracker.items():
-                if statusCode not in statusCodeTracker.keys():
-                    continue
-                print('{}: {}'.format(key, value))
-            lineCount = 0
-    except Exception:
-        pass
+def main():
+    regex = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d+\] "GET /projects/260 HTTP/1\.1" (.{3}) (\d+)')
+    log = initialize_log()
+
+    line_count = 0
+
+    for line in sys.stdin:
+        line = line.strip()
+
+        line_count = line_count + 1
+
+        parsed_log = parse_lineline, regex, log)
+
+        if line_count % 10 == 0:
+            print_codes(parsed_log)
+
+
+if __name__ == "__main__":
+   main()
