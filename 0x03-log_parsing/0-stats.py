@@ -1,52 +1,56 @@
 #!/usr/bin/python3
-'''reads stdin line by line and computes metrics'''
-import re
 import sys
 import signal
+import re
 
 
-toMatch = re.compile(
-                     r'^\d{1,3}\.\d{1,3}\.\d{1,3} \
-                     \.\d{1,3}\s\-\s\[[0-9]{4}\-[0-9] \
-                     {1,2}\-[0-9]{1,2}\s[0-9]{1,2}\: \
-                     [0-9]{1,2}\:[0-9]{1,2}.[0-9]{1,6}\] \
-                     \s\"GET\s\/projects\/260\sHTTP\/ \
-                     1\.1\"\s\d{3}\s\d{1,4}$')
-statusCodeTracker = {
-    '200': 0,
-    '301': 0,
-    '400': 0,
-    '401': 0,
-    '403': 0,
-    '404': 0,
-    '405': 0,
-    '500': 0
+status_counts = {
+    200: 0,
+    301: 0,
+    400: 0,
+    401: 0,
+    403: 0,
+    404: 0,
+    405: 0,
+    500: 0
 }
-fileSizeTracker = 0
-lineCount = 0
 
 
-def handler():
-    return True
+total_size = 0
+line_count = 0
+
+
+def sigint_handler(sig, frame):
+    print_stats()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, sigint_handler)
+
+
+def print_stats():
+    print("File size: {}".format(total_size))
+    for code in sorted(status_counts.keys()):
+        if status_counts[code] > 0:
+            print("{}: {}".format(code, status_counts[code]))
+
+
+pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[.*\] "GET /projects/260 HTTP/1\.1" (\d+) (\d+)$')
 
 
 for line in sys.stdin:
-    lineCount += 1
-    if toMatch.match(line) is False:
-        continue
-    withoutDash = line.replace('-', '')
-    arrayFromString = withoutDash.split(' ')
-    try:
-        statusCode = int(arrayFromString[6])
-        if arrayFromString[5] and isinstance(int(arrayFromString[6]), int):
-            statusCodeTracker[arrayFromString[6]] += 1
-        fileSizeTracker += int(arrayFromString[7])
-        if lineCount == 10 or signal.signal(signal.SIGINT, handler):
-            print('File size: {}'.format(fileSizeTracker))
-            for key, value in statusCodeTracker.items():
-                if statusCode not in statusCodeTracker.keys():
-                    continue
-                print('{}: {}'.format(key, value))
-            lineCount = 0
-    except:
-        pass
+    match = pattern.match(line)
+    if match:
+        status_code = int(match.group(1))
+        file_size = int(match.group(2))
+        total_size += file_size
+        status_counts[status_code] += 1
+        line_count += 1
+
+
+        if line_count % 10 == 0:
+            print_stats()
+
+
+print_stats()
+
