@@ -1,55 +1,52 @@
 #!/usr/bin/python3
+'''reads stdin line by line and computes metrics'''
+import re
 import sys
 import signal
-import re
 
-# Define a dictionary to store status code counts
-status_counts = {
-    200: 0,
-    301: 0,
-    400: 0,
-    401: 0,
-    403: 0,
-    404: 0,
-    405: 0,
-    500: 0
+
+toMatch = re.compile(
+                     r'^\d{1,3}\.\d{1,3}\.\d{1,3} \
+                     \.\d{1,3}\s\-\s\[[0-9]{4}\-[0-9] \
+                     {1,2}\-[0-9]{1,2}\s[0-9]{1,2}\: \
+                     [0-9]{1,2}\:[0-9]{1,2}.[0-9]{1,6}\] \
+                     \s\"GET\s\/projects\/260\sHTTP\/ \
+                     1\.1\"\s\d{3}\s\d{1,4}$')
+statusCodeTracker = {
+    '200': 0,
+    '301': 0,
+    '400': 0,
+    '401': 0,
+    '403': 0,
+    '404': 0,
+    '405': 0,
+    '500': 0
 }
+fileSizeTracker = 0
+lineCount = 0
 
-# Initialize variables for total file size and line count
-total_size = 0
-line_count = 0
 
-# Define a function to handle SIGINT (Ctrl+C)
-def sigint_handler(sig, frame):
-    print_stats()
-    sys.exit(0)
+def handler():
+    return True
 
-# Register the SIGINT handler
-signal.signal(signal.SIGINT, sigint_handler)
 
-# Define a function to print statistics
-def print_stats():
-    print("File size: {}".format(total_size))
-    for code in sorted(status_counts.keys()):
-        if status_counts[code] > 0:
-            print("{}: {}".format(code, status_counts[code]))
-
-# Define a regular expression pattern to match log lines
-pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[.*\] "GET /projects/260 HTTP/1\.1" (\d+) (\d+)$')
-
-# Process each line from stdin
 for line in sys.stdin:
-    match = pattern.match(line)
-    if match:
-        status_code = int(match.group(1))
-        file_size = int(match.group(2))
-        total_size += file_size
-        status_counts[status_code] += 1
-        line_count += 1
-
-        # Print statistics every 10 lines
-        if line_count % 10 == 0:
-            print_stats()
-
-# Print final statistics
-print_stats()
+    lineCount += 1
+    if toMatch.match(line) is False:
+        continue
+    withoutDash = line.replace('-', '')
+    arrayFromString = withoutDash.split(' ')
+    try:
+        statusCode = int(arrayFromString[6])
+        if arrayFromString[5] and isinstance(int(arrayFromString[6]), int):
+            statusCodeTracker[arrayFromString[6]] += 1
+        fileSizeTracker += int(arrayFromString[7])
+        if lineCount == 10 or signal.signal(signal.SIGINT, handler):
+            print('File size: {}'.format(fileSizeTracker))
+            for key, value in statusCodeTracker.items():
+                if statusCode not in statusCodeTracker.keys():
+                    continue
+                print('{}: {}'.format(key, value))
+            lineCount = 0
+    except Exception:
+        pass
