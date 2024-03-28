@@ -25,9 +25,6 @@ def sigint_handler(sig, frame):
     sys.exit(0)
 
 
-signal.signal(signal.SIGINT, sigint_handler)
-
-
 def print_stats():
     print("File size: {}".format(total_size))
     for code in sorted(status_counts.keys()):
@@ -35,8 +32,13 @@ def print_stats():
             print("{}: {}".format(code, status_counts[code]))
 
 
-pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[.*\] "GET /projects/260 HTTP/1\.1" (\d+) (\d+)$')
+signal.signal(signal.SIGINT, sigint_handler)
 
+
+pattern = re.compile(
+   r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}-\[.*\]"GET/projects/260HTTP/1\.1"'
+   r'(\d+)(\d+)$'
+)
 
 for line in sys.stdin:
     match = pattern.match(line)
@@ -46,11 +48,7 @@ for line in sys.stdin:
         total_size += file_size
         status_counts[status_code] += 1
         line_count += 1
-
-
         if line_count % 10 == 0:
             print_stats()
 
-
 print_stats()
-
