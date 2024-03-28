@@ -1,49 +1,70 @@
 #!/usr/bin/python3
+
 import sys
-import re
 import signal
+import re
+
+# Define a dictionary to store status code counts
+status_code_counts = {
+    200: 0,
+    301: 0,
+    400: 0,
+    401: 0,
+    403: 0,
+    404: 0,
+    405: 0,
+    500: 0
+}
+
+total_file_size = 0
+lines_processed = 0
 
 
-def initialize_log():
-    status_code = [200, 301, 400, 401, 403, 404, 405, 500]
-    log = {"file_size": 0, "code_list": {str(code): 0 for code in status_code}}
-    return log
+# Define a regular expression pattern to match the input format
+pattern = re.compile(r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) - \[(.*?)\]
+    r' "GET \/projects\/260 HTTP\/1\.1"' (\d{3}) (\d+)$'
 
 
-def parse_line(line, regex, log):
-    match = regex.fullmatch(line)
-     if match:
-            stat_code, file_size = match.group(1, 2)
-         log["file_size"] += int(file_size)
-        if stat_code.isdecimal():
-            log["code_list"][stat_code] += 1
-
-            return log
-
-def print_codes():
-    print("file size: {}".format(log["file_size"]))
-    sorted_code_list = sorted(log["code_list"])
-    for code in sorted_code_list:
-        if log["code_list"][code]:
-            print(f"{code}: {log["code_list"][code]}")
+def signal_handler(sig, frame):
+    print_statistics()
+    sys.exit(0)
 
 
-def main():
-    regex = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d+\] "GET /projects/260 HTTP/1\.1" (.{3}) (\d+)')
-    log = initialize_log()
+def print_statistics():
+    global total_file_size, lines_processed
+    print(f"File size: {total_file_size}")
+    for status_code, count in sorted(status_code_counts.items()):
+        if count > 0:
+            print(f"{status_code}: {count}")
 
-    line_count = 0
 
+# Register SIGINT signal handler
+signal.signal(signal.SIGINT, signal_handler)
+
+
+try:
     for line in sys.stdin:
-        line = line.strip()
+        # Parse the line using the regular expression pattern
+        match = pattern.match(line.strip())
+        if match:
+            ip_address, date, status_code_str, file_size_str = match.groups()
+            status_code = int(status_code_str)
+            file_size = int(file_size_str)
 
-        line_count = line_count + 1
+            # Update total file size
+            total_file_size += file_size
 
-        parsed_log = parse_lineline, regex, log)
+            # Update status code count
+            if status_code in status_code_counts:
+                status_code_counts[status_code] += 1
 
-        if line_count % 10 == 0:
-            print_codes(parsed_log)
+            lines_processed += 1
+
+            # Check if 10 lines have been processed, then print statistics
+            if lines_processed % 10 == 0:
+                print_statistics()
 
 
-if __name__ == "__main__":
-   main()
+except KeyboardInterrupt:
+    # If interrupted by Ctrl+C, print statistics before exiting
+    print_statistics()
