@@ -19,16 +19,13 @@ status_counts = {
 total_size = 0
 line_count = 0
 
-
 # Define a function to handle SIGINT (Ctrl+C)
 def sigint_handler(sig, frame):
     print_stats()
     sys.exit(0)
 
-
 # Register the SIGINT handler
 signal.signal(signal.SIGINT, sigint_handler)
-
 
 # Define a function to print statistics
 def print_stats():
@@ -37,12 +34,8 @@ def print_stats():
         if status_counts[code] > 0:
             print("{}: {}".format(code, status_counts[code]))
 
-
 # Define a regular expression pattern to match log lines
-pattern = re.compile(
-    r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}-\[.*\]"GET/projects/260HTTP/1\.1"'
-    r'(\d+)(\d+)$'
-)
+pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[.*\] "GET /projects/260 HTTP/1\.1" (\d+) (\d+)$')
 
 # Process each line from stdin
 for line in sys.stdin:
